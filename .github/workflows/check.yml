@@ -13,6 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: python -m pip install pillow==11.1.0
+      - run: python -m py_compile server.py storage.py job_queue.py local_runtime.py ai_runner.py setup_ai.py instance_lock.py model_catalog.py
       - run: python -m unittest discover -s tests -v
       - run: node --check static/app.js
       - run: node tests/test_frontend.cjs

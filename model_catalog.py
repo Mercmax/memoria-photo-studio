@@ -1,0 +1,31 @@
+"""Only official/identified, fixed model sources can be downloaded from the UI."""
+CATALOG = {
+    'ddcolor': {'name': 'DDColor — полный', 'purpose': 'Раскраска', 'size': '≈ 912 МБ',
+        'license': 'Apache-2.0', 'link': 'https://huggingface.co/piddnad/ddcolor_modelscope',
+        'files': [('ddcolor/config.json','https://huggingface.co/piddnad/ddcolor_modelscope/resolve/main/config.json'),
+                  ('ddcolor/pytorch_model.bin','https://huggingface.co/piddnad/ddcolor_modelscope/resolve/main/pytorch_model.bin')]},
+    'ddcolor_tiny': {'name': 'DDColor Tiny', 'purpose': 'Облегчённая раскраска для Mac', 'size': '≈ 220 МБ',
+        'license': 'Apache-2.0', 'link': 'https://huggingface.co/piddnad/ddcolor_paper_tiny',
+        'files': [('ddcolor_tiny/config.json','https://huggingface.co/piddnad/ddcolor_paper_tiny/resolve/main/config.json'),
+                  ('ddcolor_tiny/pytorch_model.bin','https://huggingface.co/piddnad/ddcolor_paper_tiny/resolve/main/pytorch_model.bin')]},
+    'esrgan2': {'name': 'Real-ESRGAN ×2', 'purpose': 'Увеличение с восстановлением деталей', 'size': '≈ 64 МБ',
+        'license': 'BSD-3-Clause', 'link': 'https://github.com/xinntao/Real-ESRGAN',
+        'files': [('RealESRGAN_x2plus.pth','https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth')]},
+    'esrgan4': {'name': 'Real-ESRGAN ×4', 'purpose': 'Крупный экспорт', 'size': '≈ 64 МБ',
+        'license': 'BSD-3-Clause', 'link': 'https://github.com/xinntao/Real-ESRGAN',
+        'files': [('RealESRGAN_x4plus.pth','https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth')]},
+    'gfpgan': {'name': 'GFPGAN v1.4', 'purpose': 'Восстановление лиц с регулируемой силой', 'size': '≈ 550 МБ с детекторами',
+        'license': 'Apache-2.0; вспомогательные веса facexlib', 'link': 'https://github.com/TencentARC/GFPGAN',
+        'files': [('GFPGANv1.4.pth','https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth'),
+                  ('gfpgan/weights/detection_Resnet50_Final.pth','https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth'),
+                  ('gfpgan/weights/parsing_parsenet.pth','https://github.com/xinntao/facexlib/releases/download/v0.2.2/parsing_parsenet.pth')]},
+    'lama': {'name': 'Big-LaMa', 'purpose': 'Заполнение отмеченных кистью повреждений', 'size': '≈ 200 МБ',
+        'license': 'Код Apache-2.0; проверьте условия выбранных весов', 'link': 'https://github.com/advimman/lama',
+        'files': [('big-lama.pt','https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt')]},
+}
+PRESETS = {
+    'gentle': {'name': 'Бережная реставрация', 'operations': ['basic']},
+    'color': {'name': 'Реставрация и цвет', 'operations': ['basic','colorize']},
+    'print': {'name': 'Подготовка к печати', 'operations': ['basic','upscale']},
+    'retouch': {'name': 'Ретушь кистью', 'operations': ['inpaint']},
+}

@@ -18,4 +18,11 @@ async function runProcessing(source,opts,contrast=1){context.source=source;conte
  const tonal=await runProcessing(image(2,1,[80,160]),{contrast:true});assert(tonal.pixels[4]-tonal.pixels[0]>80);console.log('PASS: automatic contrast expands the tonal range');
  const doubled=await runProcessing(source,{upscale:true});assert.equal(doubled.width,6);assert.equal(doubled.height,6);console.log('PASS: enlargement doubles both dimensions');
  const escaped=vm.runInContext('esc("<img src=x onerror=alert(1)>")',context);assert(!escaped.includes('<'));console.log('PASS: uploaded filenames are escaped in HTML');
+ context.fixture={photos:[{id:'photo1',name:'<script>bad()</script>.png',original:'/photos/one.png',result:null,client:'Анна',created:'2026-10-01 12:00:00',status:'new',price:1200,version_count:0}],jobs:[{id:'job1',photo_id:'photo1',kind:'process',preset:'color',status:'running',progress:25,stage:'Раскраска',device:'cuda:0',attempts:1,photo_name:'Archive.png'}],orders:[{id:'order1',name:'Архив',client:'Анна',total:5000,deposit:1000,remaining:4000,due:'',notes:'',status:'working',photos:[]}],models:{models:[{id:'ddcolor',name:'DDColor',purpose:'Раскраска',size:'912 МБ',license:'Apache-2.0',link:'https://github.com/piddnad/DDColor',downloaded:true}],runtime:{installed:true,pillow:true,devices:['cpu','cuda:0'],gpus:[{id:'cuda:0',name:'GPU',total_mb:12288}]}}};
+ vm.runInContext('photos=fixture.photos;jobs=fixture.jobs;ordersData=fixture.orders;modelData=fixture.models;settings={devices:["auto"],color_model:"ddcolor",tile:256};',context);
+ for(const name of ['studio','library','orders','queuePage','tools','settingsPage']){const html=vm.runInContext(name+'()',context);assert(html.length>100);assert(!html.includes('<script>bad()'));}
+ assert(vm.runInContext('library().includes("data-select")',context));
+ assert(vm.runInContext('queuePage()',context).includes('value="25"'));
+ console.log('PASS: all six workspace pages render with orders, GPU jobs and escaped filenames');
+
 })().catch(e=>{console.error(e);process.exitCode=1;});
