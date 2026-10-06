@@ -203,10 +203,13 @@ class Handler(BaseHTTPRequestHandler):
             ident=uuid.uuid4().hex
             with db() as c:
                 order_id=body.get('order_id') or None
-                if order_id and not c.execute('SELECT 1 FROM orders WHERE id=?',(order_id,)).fetchone():raise ValueError('Заказ не найден')
+                order=c.execute('SELECT * FROM orders WHERE id=?',(order_id,)).fetchone() if order_id else None
+                if order_id and not order:raise ValueError('Заказ не найден')
                 original=save_image(body['image'],ident+'-original')
                 c.execute('INSERT INTO photos(id,name,original,client,price,order_id) VALUES(?,?,?,?,?,?)',
-                    (ident,str(body.get('name','Фотография'))[:200],original,str(body.get('client',''))[:200],body.get('price',0),order_id))
+                    (ident,str(body.get('name','Фотография'))[:200],original,order['client'] if order else str(body.get('client',''))[:200],body.get('price',0),order_id))
+                if order and order['status'] in ('ready','delivered'):
+                    c.execute("UPDATE orders SET status='working' WHERE id=?",(order_id,))
                 return dict(photo(c,ident)),201
         if path=='/api/orders' or (len(bits)==3 and bits[:2]==['api','orders']):
             ident=bits[2] if len(bits)==3 else uuid.uuid4().hex

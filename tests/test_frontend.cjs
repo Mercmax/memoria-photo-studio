@@ -25,4 +25,31 @@ async function runProcessing(source,opts,contrast=1){context.source=source;conte
  assert(vm.runInContext('queuePage()',context).includes('value="25"'));
  console.log('PASS: all six workspace pages render with orders, GPU jobs and escaped filenames');
 
+
+ const nodes={};const node=key=>nodes[key]??=( {value:'',innerHTML:'',textContent:'',open:false,querySelectorAll:()=>[],addEventListener(){},removeEventListener(){},showModal(){this.open=true;},close(){this.open=false;this.closed=(this.closed||0)+1;},classList:{add(){},remove(){}},click(){}} );
+ const ui=vm.createContext({document:{querySelector:node,querySelectorAll:()=>[]},URL:{createObjectURL:()=> 'blob:preview',revokeObjectURL(){}},console});
+ vm.runInContext(code.slice(0,code.lastIndexOf("$('#file-input').onchange")),ui);
+ const calls=[];let secondAttempts=0;
+ ui.apiStub=async(path,payload)=>{calls.push({path,payload});if(path.startsWith('/api/orders'))return {id:'new-order',client:'Анна'};if(payload.name==='second.png'&&++secondAttempts===1)throw Error('Временный сбой');return {id:payload.name==='first.png'?'first-id':'second-id'};};
+ vm.runInContext('api=apiStub;readFile=async file=>file.name;loadImage=async()=>({naturalWidth:100,naturalHeight:100});refresh=async()=>{};toast=()=>{};openOrder();',ui);
+ assert(node('#modal').innerHTML.includes('id="order-files"'));assert(node('#modal').innerHTML.includes('multiple'));assert(node('#modal').innerHTML.includes('id="order-drop"'));
+ node('#order-name').value='Заказ';node('#order-client').value='Анна';node('#order-total').value='1200';node('#order-deposit').value='0';node('#order-status').value='new';
+ node('#order-files').onchange({target:{files:[{name:'first.png',type:'image/png',size:100},{name:'second.png',type:'image/png',size:100}],value:''}});
+ await node('#order-form').onsubmit({preventDefault(){}});
+ assert(node('#order-feedback').textContent.includes('Не удалось загрузить: 1'));assert.equal(node('#modal').closed,undefined);
+ await node('#order-form').onsubmit({preventDefault(){}});
+ assert.equal(calls.filter(c=>c.path==='/api/orders').length,1);
+ assert.equal(calls.filter(c=>c.path==='/api/photos'&&c.payload.name==='first.png').length,1);
+ assert.equal(calls.filter(c=>c.path==='/api/photos'&&c.payload.name==='second.png').length,2);
+ const saved=calls.find(c=>c.path==='/api/orders/new-order');assert.deepEqual([...saved.payload.photo_ids],['first-id']);
+ assert(calls.filter(c=>c.path==='/api/photos').every(c=>c.payload.order_id==='new-order'&&c.payload.client==='Анна'));
+ assert.equal(node('#modal').closed,1);
+ console.log('PASS: order form uploads photos immediately and retries failures without duplicate orders or photos');
+ ui.badFile={name:'huge.png',type:'image/png',size:26*1024*1024};assert.throws(()=>vm.runInContext('validateOrderFile(badFile)',ui),/25 МБ/);
+ ui.badFile={name:'document.pdf',type:'application/pdf',size:100};assert.throws(()=>vm.runInContext('validateOrderFile(badFile)',ui),/JPG/);
+ console.log('PASS: order intake rejects unsupported and oversized files');
+ context.fixture.jobs=[{id:'download-failed',kind:'download',preset:'ddcolor',status:'failed',error:'HTTPS: <invalid certificate>'}];vm.runInContext('jobs=fixture.jobs',context);
+ const failedCard=vm.runInContext('tools()',context);assert(failedCard.includes('&lt;invalid certificate&gt;'));assert(!failedCard.includes('<invalid certificate>'));
+ console.log('PASS: model download errors are visible and escaped on the model card');
+
 })().catch(e=>{console.error(e);process.exitCode=1;});

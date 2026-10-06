@@ -4,7 +4,11 @@ permissions:
   contents: read
 jobs:
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -14,7 +18,19 @@ jobs:
         with:
           node-version: '22'
       - run: python -m pip install pillow==11.1.0
-      - run: python -m py_compile server.py storage.py job_queue.py local_runtime.py ai_runner.py setup_ai.py instance_lock.py model_catalog.py
+      - run: python -m py_compile server.py storage.py job_queue.py local_runtime.py ai_runner.py setup_ai.py instance_lock.py model_catalog.py download_support.py
       - run: python -m unittest discover -s tests -v
       - run: node --check static/app.js
       - run: node tests/test_frontend.cjs
+      - name: macOS verified HTTPS model-source smoke check
+        if: runner.os == 'macOS'
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          from download_support import https_context
+          from model_catalog import CATALOG
+          url = CATALOG['ddcolor_tiny']['files'][0][1]
+          with urllib.request.urlopen(url, timeout=60, context=https_context()) as response:
+              assert isinstance(json.load(response), dict)
+          print('Verified HTTPS download of DDColor Tiny config succeeded on macOS')
+          PY

@@ -230,5 +230,36 @@ class StudioTest(unittest.TestCase):
             with self.assertRaises(local_runtime.Cancelled):local_runtime.download_model('esrgan2',progress,lambda:stop[0])
         self.assertEqual(dest.read_bytes(),b'previous');self.assertFalse(dest.with_suffix('.pth.part').exists())
 
-if __name__=='__main__':unittest.main()
+    def test_order_upload_inherits_client_and_reopens_delivered_order(self):
+        order=self.request('/api/orders',{'name':'Семейный архив','client':'Анна','total':1200})
+        first=self.request('/api/photos',{'image':PNG,'name':'Первое.png','order_id':order['id']})
+        self.assertEqual(first['client'],'Анна')
+        self.request('/api/photos/'+first['id'],{'image':PNG})
+        self.request('/api/orders/'+order['id'],{'status':'delivered'})
+        second=self.request('/api/photos',{'image':PNG,'name':'Второе.png','order_id':order['id'],'client':'Ошибочное имя'})
+        self.assertEqual(second['client'],'Анна')
+        orders=self.request('/api/orders');self.assertEqual(orders[0]['status'],'working')
+        self.assertEqual({p['id'] for p in orders[0]['photos']},{first['id'],second['id']})
 
+    def test_certificate_download_error_reaches_queue_and_preserves_weights(self):
+        import local_runtime,job_queue,storage,ssl,urllib.error
+        dest=storage.MODELS/'RealESRGAN_x2plus.pth';dest.write_bytes(b'previous')
+        queued=job_queue.enqueue_download('esrgan2');job=job_queue.claim('download','download')
+        error=urllib.error.URLError(ssl.SSLCertVerificationError('CERTIFICATE_VERIFY_FAILED'))
+        with patch('local_runtime.urllib.request.urlopen',side_effect=error):job_queue.execute(job,'download')
+        result=next(j for j in self.request('/api/jobs') if j['id']==queued['id'])
+        self.assertEqual(result['status'],'failed');self.assertIn('setup-ai-mac.sh',result['error'])
+        self.assertEqual(dest.read_bytes(),b'previous');self.assertFalse(dest.with_suffix('.pth.part').exists())
+
+    def test_model_download_uses_verified_context_and_atomic_replacement(self):
+        import local_runtime,storage,ssl
+        dest=storage.MODELS/'RealESRGAN_x2plus.pth';dest.write_bytes(b'previous')
+        class Response(io.BytesIO):headers={'Content-Length':'5'}
+        def opening(request,timeout,context):
+            self.assertTrue(context.check_hostname);self.assertEqual(context.verify_mode,ssl.CERT_REQUIRED)
+            return Response(b'model')
+        with patch('local_runtime.urllib.request.urlopen',side_effect=opening):local_runtime.download_model('esrgan2',lambda *args:None,lambda:False)
+        self.assertEqual(dest.read_bytes(),b'model')
+        self.assertFalse(dest.with_suffix('.pth.part').exists())
+
+if __name__=='__main__':unittest.main()

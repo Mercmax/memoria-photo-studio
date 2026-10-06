@@ -7,9 +7,12 @@ import subprocess
 import sys
 import time
 import urllib.request
+import urllib.error
+import ssl
 from pathlib import Path
 from model_catalog import CATALOG, PRESETS
 from storage import ROOT, MODELS, WORK, settings
+from download_support import https_context, download_error
 
 class Cancelled(Exception):
     pass
@@ -61,11 +64,12 @@ def download_model(model_id, progress, cancelled):
     for i,(name,url) in enumerate(spec['files']):
         if cancelled(): raise Cancelled()
         dest = MODELS/name
-        dest.parent.mkdir(parents=True,exist_ok=True)
         temporary = dest.with_suffix(dest.suffix+'.part')
         try:
+            dest.parent.mkdir(parents=True,exist_ok=True)
+            progress(int(100*i/len(spec['files'])), 'Подключение: '+spec['name'])
             request = urllib.request.Request(url,headers={'User-Agent':'MemoriaStudio/2.0'})
-            with urllib.request.urlopen(request,timeout=30) as response, temporary.open('wb') as stream:
+            with urllib.request.urlopen(request,timeout=60,context=https_context()) as response, temporary.open('wb') as stream:
                 total = int(response.headers.get('Content-Length',0)); received = 0
                 digest = hashlib.sha256()
                 while True:
@@ -76,10 +80,12 @@ def download_model(model_id, progress, cancelled):
                     if received > 2*1024*1024*1024: raise ValueError('Файл модели слишком большой')
                     stream.write(chunk); digest.update(chunk)
                     percent = min(99,int(100*(i+(received/total if total else .1))/len(spec['files'])))
-                    progress(percent,'Скачивание '+spec['name'])
+                    progress(percent,'Скачивание '+spec['name']+f' · {received/1024/1024:.1f} МБ'+(f' из {total/1024/1024:.1f} МБ' if total else ''))
                 if not received or (total and received != total): raise ValueError('Файл скачан не полностью')
             temporary.replace(dest)
             hashes[name] = digest.hexdigest()
+        except (urllib.error.URLError, OSError, ssl.SSLError) as error:
+            raise ValueError(download_error(error,url)) from error
         finally:
             temporary.unlink(missing_ok=True)
     (MODELS/(model_id+'-manifest.json')).write_text(json.dumps({'model':model_id,'sha256':hashes},indent=2))
